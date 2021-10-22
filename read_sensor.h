@@ -33,7 +33,7 @@ float readTemperature() {
    return temperature;
 }
 
-float read_phSensor() {
+float readPhSensor() {
   temperature = readTemperature();         // read your temperature sensor to execute temperature compensation
   voltage = analogRead(PH_PIN)/1024.0*5000;  // read the voltage
   phSensorValue = ph.readPH(voltage,temperature);  // convert voltage to pH with temperature compensation
@@ -44,7 +44,7 @@ float read_phSensor() {
   return phSensorValue;
 }
 
-float read_ecSensor() {
+float readEcSensor() {
   voltage = analogRead(EC_PIN)/1024.0*5000;  // read the voltage
   temperature = readTemperature();  // read your temperature sensor to execute temperature compensation
   ecSensorValue =  ec.readEC(voltage,temperature) - 0.5 ;  // convert voltage to EC with temperature compensation
