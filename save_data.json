@@ -1,0 +1,12 @@
+{
+    "temperature": [
+        {
+            "time": 2,
+            "value": 22
+        },
+        {
+            "time": 33,
+            "value": 3,
+        }
+    ]
+}
