@@ -1,7 +1,7 @@
 #include "DFRobot_PH.h"
 #include "DFRobot_EC.h"
 #include "DHT.h"
-#include <OneWire.h> 
+#include <OneWire.h>
 #include <DallasTemperature.h>
 #include <EEPROM.h>
 
@@ -12,7 +12,7 @@
 #define DHTPIN 8    // Digital pin connected to the DHT sensor
 #define DHTTYPE DHT11   // DHT 11
 
-OneWire oneWire(ONE_WIRE_BUS); 
+OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature sensors(&oneWire);
 DHT dht(DHTPIN, DHTTYPE);
 DFRobot_PH ph;
@@ -27,37 +27,36 @@ namespace Sensors {
   }
 }
 
-float readTemperature()
-{ 
-   sensors.requestTemperatures(); // Send the command to get temperature readings 
+float readTemperature() {
+   sensors.requestTemperatures(); // Send the command to get temperature readings
    temperature = sensors.getTempCByIndex(0);
    return temperature;
 }
 
-float read_phSensor() {
+float readPhSensor() {
   temperature = readTemperature();         // read your temperature sensor to execute temperature compensation
   voltage = analogRead(PH_PIN)/1024.0*5000;  // read the voltage
   phSensorValue = ph.readPH(voltage,temperature);  // convert voltage to pH with temperature compensation
 //  Serial.print("temperature:");
 //  Serial.print(temperature,1);
-  Serial.print("^C  pH:");
-  Serial.println(phSensorValue,2);
+  // Serial.print("^C  pH:");
+  // Serial.println(phSensorValue,2);
   return phSensorValue;
 }
 
-float read_ecSensor() {
+float readEcSensor() {
   voltage = analogRead(EC_PIN)/1024.0*5000;  // read the voltage
   temperature = readTemperature();  // read your temperature sensor to execute temperature compensation
   ecSensorValue =  ec.readEC(voltage,temperature) - 0.5 ;  // convert voltage to EC with temperature compensation
-  Serial.print("temperature:");
-  Serial.print(temperature,1);
-  Serial.print("^C  EC:");
-  Serial.print(ecSensorValue,2);
-  Serial.println("ms/cm");
+  // Serial.print("temperature:");
+  // Serial.print(temperature,1);
+  // Serial.print("^C  EC:");
+  // Serial.print(ecSensorValue,2);
+  // Serial.println("ms/cm");
   return ecSensorValue;
 }
 
-//DHT11 sensor values
+// DHT11 sensor values
 float ambient_temp_and_humidity() {
   h = dht.readHumidity();
   t = dht.readTemperature();

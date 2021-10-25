@@ -1,113 +1,104 @@
 #include "pump_activation.h"
 #include "read_sensor.h"
+#include <string>
 
-const int numReadings = 10;
+// CONSTANTS
+const int NUM_READINGS = 10;
+const int POLL_RATE = 115200;
+const int FLOAT_SWITCH = 4;
+const int SOLENOID_VALVE = 7;
+const long SOLENOID_VALVE_INTERVAL = 1000;
+const unsigned char FLOW_SENSOR = 5; // Sensor Input
+const int TIME_THRESHOLD = 5000;
 
-float phReadings[numReadings];      // the readings from the analog input
-int phReadIndex = 0;              // the index of the current reading
-float phTotal = 0;                  // the running total
-float phAverage = 5.5;                // the average
+// Readings
+float phReadings[NUM_READINGS];      // the readings from the analog input
+float ecReadings[NUM_READINGS];      // the readings from the analog input
+float waterTempReadings[NUM_READINGS];
+float ambientTempReadings[NUM_READINGS];
+float humidityReadings[NUM_READINGS];
 
-float ecReadings[numReadings];      // the readings from the analog input
-int ecReadIndex = 0;              // the index of the current reading
+// Variables
+int buttonState = 1; // reads pushbutton status
+volatile int flow_frequency; // Measures flow sensor pulses
+
+// Calculated values
 float ecTotal = 0;                  // the running total
 float ecAverage = 8.0;                // the average
-
-//Float switch and solenoid vaalve
-const int float_switch = 4;
-const int solenoid_valve = 7;          
-int buttonState = 1; //reads pushbutton status 
-
-unsigned long float_time = 0;
-const long solenoid_valve_interval = 1000;
-
-//Water Flow sensor 
-volatile int flow_frequency; // Measures flow sensor pulses
+float phTotal = 0;                  // the running total
+float phAverage = 5.5;                // the average
 unsigned int l_hour; // Calculated litres/hour
-unsigned char flowsensor = 5; // Sensor Input
+
+// Timekeeping
+unsigned long floatTime = 0;
 unsigned long currentTime;
 unsigned long cloopTime;
-void flow () // Interrupt function
-{
+
+// Indexes
+int phReadIndex = 0;              // the index of the current reading
+int ecReadIndex = 0;              // the index of the current reading
+
+
+void flow () { // Interrupt function
    flow_frequency++;
 }
 
-void setup() {
-  pinMode(float_switch, INPUT_PULLUP);
-  pinMode(solenoid_valve, OUTPUT);
-  pinMode(flowsensor, INPUT);
-  digitalWrite(flowsensor, HIGH); // Optional Internal Pull-Up
-  Serial.begin(115200);
-  Pump::initialise();
-  Sensors::initialise();
-  sei(); // Enable interrupts
+void initialisePins() {
+  pinMode(FLOAT_SWITCH, INPUT_PULLUP);
+  pinMode(SOLENOID_VALVE, OUTPUT);
+  pinMode(FLOW_SENSOR, INPUT);
+  digitalWrite(FLOW_SENSOR, HIGH); // Optional Internal Pull-Up
+}
+
+void initTimeKeeping() {
   currentTime = millis();
   cloopTime = currentTime;
- 
-  for (int phThisReading = 0; phThisReading < numReadings; phThisReading++) {
+}
+
+void resetPhReadings() {
+  for (int phThisReading = 0; phThisReading < NUM_READINGS; phThisReading++) {
     phReadings[phThisReading] = 0;
   }
-  for (int ecThisReading = 0; ecThisReading < numReadings; ecThisReading++) {
+}
+
+void resetEcReadings() {
+  for (int ecThisReading = 0; ecThisReading < NUM_READINGS; ecThisReading++) {
     ecReadings[ecThisReading] = 0;
   }
 }
 
+/**
+ * Prepares the device for reading
+ */
+void setup() {
+  Serial.begin(POLL_RATE);
+  Pump::initialise();
+  Sensors::initialise();
+  sei(); // Enable interrupts
+  initTimeKeeping();
+  resetEcReadings();
+  resetPhReadings();
+}
 
-void loop() {
-  // read sensors ~ EC and pH
-  static unsigned long timepoint = millis();
-  if (millis() - timepoint > 5000) {
-    timepoint = millis();
-    
-    temperature = readTemperature();
-    //ambient_temp_and_humidity();
+void sendData(string description, float value) {
+  Serial.print(description + ": ");
+  Serial.println(value);
+  Serial.print('\0');
+}
 
-    ecTotal = ecTotal - ecReadings[ecReadIndex];
-    ecReadings[ecReadIndex] = read_ecSensor();
-    ecTotal = ecTotal + ecReadings[ecReadIndex];
-    ecReadIndex = ecReadIndex + 1;
-    
-    if (ecReadIndex >= numReadings) {
-      // ...wrap around to the beginning:
-      ecReadIndex = 0;
-    }
+void toggleSolenoidValve(unsigned long *startTime) {
+  buttonState = digitalRead(FLOAT_SWITCH);
+  if (millis() - *startTime < SOLENOID_VALVE_INTERVAL) {
+    return;
+  }
+  digitalWrite(SOLENOID_VALVE, !buttonState);
+  *startTime = millis();
+}
 
-    ecAverage = ecTotal / numReadings;
-    //      Serial.print("average EC:");
-    //      Serial.println(ecAverage);
-
-    phTotal = phTotal - phReadings[phReadIndex];
-    phReadings[phReadIndex] = read_phSensor();
-    phTotal = phTotal + phReadings[phReadIndex];
-    phReadIndex = phReadIndex + 1;
-
-    if (phReadIndex >= numReadings) {
-      // ...wrap around to the beginning:
-      phReadIndex = 0;
-    }
-
-    phAverage = phTotal / numReadings;
-    //      Serial.print("average pH:");
-    //      Serial.println(phAverage);
-
-    unsigned long currentMillis = millis();
-
-    //Activate and de-activaete solenoid valve
-    buttonState = digitalRead(float_switch);  
-    if (currentMillis - float_time >= solenoid_valve_interval){
-       
-       if (buttonState == LOW){
-          digitalWrite(solenoid_valve, HIGH);
-          //Serial.println( "WATER LEVEL - LOW"); //switch solenoid on
-       }
-       else {
-          digitalWrite(solenoid_valve,LOW); //Switch solenoid off
-          //Serial.println( "WATER LEVEL - HIGH" );
-       }   
-       float_time = currentMillis;
-    }
-
-    //flow meter sensor readings
+void getflowMeterReading() {
+  // TODO
+  /*
+    // flow meter sensor readings
     if(currentMillis >= (cloopTime + 1000)){
       // Every second, calculate and print litres/hour
       cloopTime = currentMillis; // Updates cloopTime
@@ -117,6 +108,20 @@ void loop() {
       Serial.print(l_hour, DEC); // Print litres/hour
       Serial.println(" L/hour");
     }
+    */
+}
+
+void loop() {
+
+    sendData("temperature", readTemperature());
+    sendData("ambientTemp", readAmbientTemperature());
+    sendData("humidity", readAmbientTemperature());
+    sendData("ec", readEcSensor());
+    sendData("pH", readPhSensor());
+
+    toggleSolenoidValve(&currentTime);
+
+
 
     // Activate and deactivate pump
     pumpVal = 0.0;
